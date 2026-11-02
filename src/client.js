@@ -33,7 +33,7 @@ var BAR_ID = "dsh-find-all-root";
 			TH: 1, THEAD: 1, TR: 1, UL: 1
 		};
 
-		var ZH = typeof navigator !== "undefined" && /^zh/i.test(navigator.language || "");
+		var ZH = true;
 		var L = ZH ? {
 			placeholder: "在此会话中查找…",
 			prev: "上一个匹配",
@@ -1093,10 +1093,6 @@ var BAR_ID = "dsh-find-all-root";
                     corrections++;
                     scrollToRange(current);
                     viewport = readingViewport(target); landing = matchLanding(current, viewport);
-                    if (dataHit && landing && !landing.readable) {
-                        state.avoidMatchRange = current; positionBar();
-                        landing = matchLanding(current, readingViewport(target));
-                    }
                     previous = null; stable = 0;
                     retry(); return;
                 }
@@ -1505,13 +1501,6 @@ var BAR_ID = "dsh-find-all-root";
 			left = Math.max(leftEdge, Math.min(left, rightEdge - box.width));
 			top = Math.max(topEdge, Math.min(top, bottomEdge - box.height));
 			if (manual) { manual.left = left; manual.top = top; }
-            var avoid=state.avoidMatchRange&&rangeRect(state.avoidMatchRange);
-            if(avoid&&left<avoid.right&&left+box.width>avoid.left&&top<avoid.bottom&&top+box.height>avoid.top){
-                var verticalGap=8+matchLineMargin(state.avoidMatchRange,avoid);
-                var choices=[{left:left,top:avoid.bottom+verticalGap},{left:left,top:avoid.top-box.height-verticalGap},{left:avoid.left-box.width-8,top:top},{left:avoid.right+8,top:top}].filter(function(p){return p.left>=leftEdge&&p.left+box.width<=rightEdge&&p.top>=topEdge&&p.top+box.height<=bottomEdge;});
-                choices.sort(function(a,b){return Math.abs(a.left-left)+Math.abs(a.top-top)-Math.abs(b.left-left)-Math.abs(b.top-top);});
-                if(choices.length){left=choices[0].left;top=choices[0].top;}
-            }
 			state.bar.style.setProperty("--dsh-find-all-bar-top", cssPixel(top));
 			state.bar.style.setProperty("--dsh-find-all-bar-right", cssPixel(window.innerWidth - left - box.width));
 			state.bar.setAttribute("data-positioned", "");
@@ -2498,77 +2487,6 @@ var BAR_ID = "dsh-find-all-root";
 			input.setAttribute("aria-label", L.placeholder);
 			input.addEventListener("input", function () { onQueryInput(input); });
 
-			var contentBtn = document.createElement("button");
-			contentBtn.type = "button";
-			contentBtn.className = "content-filter";
-			contentBtn.appendChild(optionsIcon());
-			contentBtn.setAttribute("aria-expanded", "false");
-			contentBtn.setAttribute("aria-controls", BAR_ID + "-content-panel");
-			contentBtn.addEventListener("click", toggleContentPanel);
-
-			var contentPanel = document.createElement("div");
-			contentPanel.id = BAR_ID + "-content-panel";
-			contentPanel.className = "content-panel";
-			contentPanel.hidden = true;
-			contentPanel.setAttribute("role", "group");
-			contentPanel.setAttribute("aria-label", L.contentButton);
-			// Keep the menu material on the fixed shell while only its contents scroll.
-			var contentViewport = document.createElement("div");
-			contentViewport.className = "content-viewport";
-			var scopeGroup = document.createElement("fieldset");
-			scopeGroup.className = "scope-group";
-			var scopeLegend = document.createElement("legend");
-			scopeLegend.textContent = L.scopeLegend;
-			scopeGroup.appendChild(scopeLegend);
-			var scopeInputs = {};
-			["whole", "page"].forEach(function (scope) {
-				var option = document.createElement("label");
-				option.className = "content-option";
-				var radio = document.createElement("input");
-				radio.type = "radio";
-				radio.name = BAR_ID + "-scope";
-				radio.value = scope;
-				radio.checked = state.scope === scope;
-				radio.addEventListener("change", function () { if (radio.checked) setScope(scope); });
-				var label = document.createElement("span");
-				label.textContent = scope === "whole" ? L.scopeWhole : L.scopePage;
-				option.appendChild(radio); option.appendChild(label); scopeGroup.appendChild(option);
-				scopeInputs[scope] = radio;
-			});
-			contentViewport.appendChild(scopeGroup);
-			var contentGroup = document.createElement("fieldset");
-			var legend = document.createElement("legend");
-			legend.textContent = L.contentLegend;
-			contentGroup.appendChild(legend);
-			var contentOptions = document.createElement("div");
-			contentOptions.className = "content-options";
-			var contentInputs = {};
-			CONTENT_TYPES.forEach(function (type) {
-				var option = document.createElement("label");
-				option.className = "content-option";
-				var checkbox = document.createElement("input");
-				checkbox.type = "checkbox";
-				checkbox.id = BAR_ID + "-content-" + type;
-				option.htmlFor = checkbox.id;
-				checkbox.checked = state.contentTypes[type] === true;
-				checkbox.addEventListener("change", function () { state.contentTypes[type] = checkbox.checked; contentSelectionChanged(); });
-				var label = document.createElement("span");
-				label.textContent = L.contentTypes[type];
-				option.appendChild(checkbox); option.appendChild(label); contentOptions.appendChild(option); contentInputs[type] = checkbox;
-			});
-			contentGroup.appendChild(contentOptions);
-			contentViewport.appendChild(contentGroup);
-			var resetContent = document.createElement("button");
-			resetContent.type = "button";
-			resetContent.className = "content-reset";
-			resetContent.textContent = L.contentReset;
-			resetContent.addEventListener("click", function () {
-				CONTENT_TYPES.forEach(function (type) { state.contentTypes[type] = DEFAULT_CONTENT_TYPES[type]; contentInputs[type].checked = DEFAULT_CONTENT_TYPES[type]; });
-				contentSelectionChanged();
-			});
-			contentGroup.appendChild(resetContent);
-			contentPanel.appendChild(contentViewport);
-
 			var count = document.createElement("button");
             count.type = "button"; count.className = "count"; count.hidden = true;
             count.setAttribute("aria-disabled", "true");
@@ -2607,80 +2525,6 @@ var BAR_ID = "dsh-find-all-root";
 
 			controls.appendChild(input);
 			controls.appendChild(countState); controls.appendChild(count); controls.appendChild(countEditor);
-			var refreshBtn = button(L.refreshHistory, "M20 7v5h-5M4 17v-5h5M6 8a7 7 0 0 1 12-2l2 3M4 15l2 3a7 7 0 0 0 12-2", function () {
-				if (state.scope !== "whole") return;
-				closeContentPanel(true);
-				cancelPageIn(); cancelNavigation(); state.history = null; state.historySnapshot = null;
-				searchHistory(true); startPageIn();
-			});
-			var refreshLabel = document.createElement("span");
-			refreshLabel.textContent = L.refreshHistory;
-			refreshBtn.appendChild(refreshLabel);
-			var historyCommand = document.createElement("div");
-			historyCommand.className = "history-command";
-			historyCommand.appendChild(refreshBtn);
-			contentViewport.appendChild(historyCommand);
-            var searchCommand = document.createElement('div'); searchCommand.className = 'history-command';
-            var searchConversations = document.createElement('button'); searchConversations.type = 'button';
-            searchConversations.textContent = ZH ? '对话全文搜索' : 'Full-text conversation search';
-            searchConversations.addEventListener('click', function () { state.conversationSearch?.open(state.query); });
-            searchCommand.appendChild(searchConversations); contentViewport.appendChild(searchCommand);
-			state.refreshBtn = refreshBtn;
-            var updateCommand = document.createElement('div');
-            updateCommand.className = 'history-command update-command';
-            var currentVersion = document.createElement('p');
-            currentVersion.className = 'update-version';
-            currentVersion.textContent = L.currentVersion + ' ' + __DSH_FIND_ALL_VERSION__;
-            var updateBtn = document.createElement('button');
-            updateBtn.type = 'button'; updateBtn.className = 'check-update';
-            updateBtn.addEventListener('click', checkForUpdates);
-            var updateSource = document.createElement('p');
-            updateSource.className = 'feedback-privacy'; updateSource.textContent = L.updateSource;
-            updateSource.id = BAR_ID + '-update-source'; updateBtn.setAttribute('aria-describedby', updateSource.id);
-            var updateStatus = document.createElement('p');
-            updateStatus.className = 'update-status'; updateStatus.setAttribute('role', 'status');
-            updateStatus.setAttribute('aria-atomic', 'true');
-            var updateGuide = document.createElement('a');
-            updateGuide.className = 'feedback-issue'; updateGuide.textContent = L.updateGuide;
-            updateGuide.href = 'https://github.com/AiurRefugee/dsh-search-history#更新';
-            updateGuide.target = '_blank'; updateGuide.rel = 'noopener noreferrer';
-            updateGuide.hidden = true;
-            updateCommand.append(currentVersion, updateBtn, updateSource, updateStatus, updateGuide);
-            // This fork is distributed through GitHub.
-            currentVersion.textContent = "dsh-search-history " + __DSH_FIND_ALL_VERSION__;
-            contentViewport.appendChild(currentVersion);
-            state.updateBtn = updateBtn; state.updateStatus = updateStatus; state.updateGuide = updateGuide;
-            renderUpdateCheck();
-            var diagnosticCommand = document.createElement('div');
-            diagnosticCommand.className = 'history-command diagnostic-command';
-            var diagnosticBtn = button(L.copyDiagnostics, 'M9 5H5v16h12v-4M9 3h12v12H9z', copyDiagnostics);
-            var diagnosticLabel = document.createElement('span');
-            diagnosticLabel.textContent = L.copyDiagnostics;
-            diagnosticBtn.appendChild(diagnosticLabel);
-            var diagnosticFeedback = document.createElement('span');
-            diagnosticFeedback.className = 'diagnostic-feedback';
-            diagnosticFeedback.setAttribute('role', 'status');
-            var feedbackIssue = document.createElement('a');
-            feedbackIssue.className = 'feedback-issue'; feedbackIssue.textContent = L.feedbackIssue;
-            feedbackIssue.href = 'https://github.com/AiurRefugee/dsh-search-history/issues/new';
-            feedbackIssue.target = '_blank'; feedbackIssue.rel = 'noopener noreferrer';
-            feedbackIssue.appendChild(icon('M14 3h7v7M21 3l-9 9M10 5H5v14h14v-5', 14));
-            var feedbackPrivacy = document.createElement('p');
-            feedbackPrivacy.className = 'feedback-privacy'; feedbackPrivacy.textContent = L.feedbackPrivacy;
-            feedbackPrivacy.id = BAR_ID + '-feedback-privacy'; feedbackIssue.setAttribute('aria-describedby', feedbackPrivacy.id);
-            diagnosticCommand.append(diagnosticBtn, diagnosticFeedback, feedbackIssue, feedbackPrivacy);
-            contentViewport.appendChild(diagnosticCommand);
-            var aboutCommand = document.createElement('div');
-            aboutCommand.className = 'history-command';
-            var aboutBtn = document.createElement('button');
-            aboutBtn.type = 'button'; aboutBtn.textContent = L.about;
-            aboutBtn.disabled = !state.aboutAvailable;
-            if (!state.aboutAvailable) aboutBtn.title = L.aboutUnavailable;
-            aboutBtn.setAttribute('aria-haspopup', 'dialog');
-            aboutBtn.addEventListener('click', openAbout);
-            aboutCommand.appendChild(aboutBtn); contentViewport.appendChild(aboutCommand);
-            state.diagnosticBtn = diagnosticBtn;
-            state.diagnosticFeedback = diagnosticFeedback;
 			navigation.appendChild(button(L.prev, "m18 15-6-6-6 6", function () { goTo(-1); }));
 			navigation.appendChild(button(L.next, "m6 9 6 6 6-6", function () { goTo(1); }));
 			var returnBtn = document.createElement('button');
@@ -2693,16 +2537,6 @@ var BAR_ID = "dsh-find-all-root";
 			returnBtn.addEventListener('click', returnToOrigin);
 			state.returnBtn = returnBtn;
 			navigation.appendChild(returnBtn);
-			navigation.appendChild(contentBtn);
-			// The portal follows its trigger in keyboard order without trapping focus.
-			contentPanel.addEventListener("keydown", function (event) {
-				if (event.key !== "Tab") return;
-				if (event.shiftKey && event.target === scopeInputs[state.scope]) {
-					event.preventDefault(); closeContentPanel(true);
-				} else if (!event.shiftKey && event.target === (aboutBtn.disabled ? feedbackIssue : aboutBtn)) {
-					event.preventDefault(); closeContentPanel(); closeBtn.focus({ preventScroll: true });
-				}
-			});
 			controls.appendChild(navigation);
 			bar.appendChild(countHint); bar.appendChild(status); bar.appendChild(countLive);
             var searchReturn = document.createElement('button'); searchReturn.type = 'button'; searchReturn.hidden = true;
@@ -2718,14 +2552,8 @@ var BAR_ID = "dsh-find-all-root";
 			state.input = input;
 			state.count = count;
 			state.status = status;
-			state.scopeInputs = scopeInputs;
-			state.contentBtn = contentBtn;
-			state.contentPanel = contentPanel;
-			state.contentInputs = contentInputs;
-			updateScopeButton();
-			updateContentButton();
 			document.body.appendChild(bar);
-			document.body.appendChild(contentPanel);
+
 			var announcement = document.createElement('span');
 			announcement.setAttribute('role', 'status'); announcement.setAttribute('aria-live', 'polite');
 			announcement.setAttribute('aria-atomic', 'true');
