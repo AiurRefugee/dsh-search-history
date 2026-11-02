@@ -4,11 +4,10 @@ const ENDPOINT = "api/dsh-search-history/search";
 const DEFAULT_SCOPE = "ordinary-unarchived", ARCHIVED_SCOPE = "ordinary-including-archived";
 const PAGE_MATCH_TARGET = 20;
 const EMPTY = { items: [], cursor: null, scanned: 0, total: 0, failed: 0, skipped: 0, complete: false };
-const zh = typeof navigator !== 'undefined' && /^zh/i.test(navigator.language || '');
-const L = zh ? {
+const L = {
   title: '全局搜索', close: '关闭对话全文搜索', placeholder: '搜索标题和正文…', titlePlaceholder: '搜索标题…',
   scope: '搜索范围：所有工作区',
-  scopeDetails: '搜索当前连接服务中、所有工作区的普通非空对话；默认不含归档，可勾选包含归档；不包含子代理对话。',
+  scopeDetails: '搜索当前连接服务中、所有工作区的普通非空对话；不含归档；不包含子代理对话。',
   includeArchived: '包含归档', archived: '已归档', restore: '取消归档并打开', restoring: '正在取消归档…',
   restoreUnavailable: '当前宿主不支持取消归档。', restoreUnconfirmed: '未能确认取消归档，尚未打开；请稍后重试。',
   restoredOpenFailed: '已取消归档，但未能打开对话。可返回结果重试。', restoredFindFailed: '已取消归档，但未能接入聊天正文查找。可返回结果重试。', archivedNow: '该对话已归档；请使用“取消归档并打开”。',
@@ -29,30 +28,6 @@ const L = zh ? {
   opening: '正在打开对话…', openFailed: '未能打开该对话。可以返回结果重试。',
   chatNeeded: '未能接入该对话的聊天正文。请切换到 Chat／聊天视图，再从搜索结果重试。',
   interrupted: '已停止继续查找；可重新打开搜索结果。', back: '返回搜索结果',
-} : {
-  title: 'Full-text conversation search', close: 'Close full-text conversation search', placeholder: 'Search titles and message text…', titlePlaceholder: 'Search titles…',
-  scope: 'Search scope: All workspaces',
-  scopeDetails: 'Searches ordinary, nonempty conversations across all workspaces on the connected server. Archived conversations are excluded unless Include archived is checked. Subagent conversations are excluded.',
-  includeArchived: 'Include archived', archived: 'Archived', restore: 'Unarchive and open', restoring: 'Unarchiving…',
-  restoreUnavailable: 'This Host does not support unarchiving.', restoreUnconfirmed: 'Unarchiving could not be confirmed, so the conversation was not opened. Try again shortly.',
-  restoredOpenFailed: 'Unarchived, but the conversation could not be opened. Return to the results to retry.', restoredFindFailed: 'Unarchived, but chat text could not be reached for find. Return to the results to retry.', archivedNow: 'This conversation is archived. Use Unarchive and open.',
-  help: 'Search help', shown: n => `${n} conversations`, page: n => `${n} conversations shown · More conversations remain unsearched`,
-  unavailableShort: 'Search service unavailable', stoppedShort: 'Search stopped', partialShort: 'Search results are incomplete', noMatchesYet: 'No matching conversations yet',
-  semantics: 'Case-insensitive literal substring search. Body text includes raw Markdown, but excludes reasoning and tool content.',
-  handoff: 'Select a snippet to load and locate its message. A title-only match opens the conversation.',
-  snapshot: 'Candidates are fixed when the scan starts. Press Enter in the search field to refresh after adding or changing conversations.',
-  emptyQuery: 'Enter a query to search.', invalidShort: 'Adjust your search query', invalid: 'Use at most 500 characters, without null characters.',
-  pending: 'Scanning conversations…', unavailable: 'Full search service unavailable. Check the server extension and connection, then retry. Confirmed results are kept.',
-  stopped: 'Search stopped. Confirmed results are kept; the scan is incomplete.', failedList: 'Conversation list unavailable. Try again.',
-  loading: 'Loading conversation list…', unsupported: 'Full-text conversation search is unsupported on this Host.',
-  noMatches: 'No matching conversations found.',
-  more: 'Load more results', titleOnly: 'Titles only', progress: (n, total) => `${n} / ${total} conversations scanned`, partial: (failed, skipped) => `Incomplete results: ${failed} failed, ${skipped} skipped.`, incomplete: 'Some conversations remain unscanned.', retry: 'Retry', cancel: 'Stop search',
-  untitled: 'Untitled conversation',
-  order: 'Automatically scans and shows matches until at least 20 more conversations are found or the scan finishes. Load more results for the next page. Results follow scan order.',
-  missing: 'This conversation is no longer openable. It may be archived, deleted, or inaccessible.',
-  opening: 'Opening conversation…', openFailed: 'Could not open this conversation. Return to the results to retry.',
-  chatNeeded: 'The conversation’s chat content is unavailable. Switch to Chat view, then retry from the search results.',
-  interrupted: 'Find handoff stopped. You can reopen the search results.', back: 'Back to search results',
 };
 
 function catalog(sessions, workspaces, includeArchived = false) {
@@ -358,9 +333,6 @@ export function installConversationSearch(ctx, react, ui, bridge) {
       const dialog = details.current?.closest('[role="dialog"]');
       if (dialog && Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"],[role="menu"]')).pop() === dialog) dismiss();
     };
-    const setTitleOnly = checked => { invalidateRestoreNavigation(); mode = checked ? 'title' : 'title-body'; scroll = 0; notice = ''; cancelHandoff(); schedule(); };
-    const setIncludeArchived = checked => { invalidateRestoreNavigation(); includeArchived = checked; scroll = 0; notice = ''; cancelHandoff(); schedule(); };
-    const checkbox = (checked, onChange, label) => ui.Checkbox ? h(ui.Checkbox, { checked, onChange, label, className: 'dsh-find-all-conversations-title-only' }) : h('label', { className: 'dsh-find-all-conversations-title-only dsh-find-all-conversations-title-only-fallback' }, h('input', { type: 'checkbox', checked, onChange: event => onChange(event.target.checked) }), ' ', label);
     const actions = retryable || pending || content.cursor ? h('div', { className: 'dsh-find-all-conversations-actions' },
       retryable ? h(ui.Button, { type: 'button', size: 'sm', variant: 'ghost', onClick: () => {
         notice = ''; schedule();
@@ -380,12 +352,10 @@ export function installConversationSearch(ctx, react, ui, bridge) {
             }, className: 'dsh-find-all-conversations-input' }),
           h(ui.Button, { type: 'button', size: 'sm', variant: 'ghost', 'aria-label': L.close, title: L.close, onClick: requestClose, className: 'dsh-find-all-conversations-close' },
             ui.IconCloseOutlineRegular ? h(ui.IconCloseOutlineRegular, { size: 14 }) : '×')),
-        h('div', { className: 'dsh-find-all-conversations-toolbar' },
-          h('span', { className: 'dsh-find-all-conversations-scope' }, L.scope),
-          h('div', { className: 'dsh-find-all-conversations-options' }, checkbox(mode === 'title', setTitleOnly, L.titleOnly), checkbox(includeArchived, setIncludeArchived, L.includeArchived))),
         h('div', { ref: list, onScroll: event => { scroll = event.currentTarget.scrollTop; }, className: 'dsh-find-all-conversations-list' },
           !results.items.length && emptyStatus ? h('div', { className: 'dsh-find-all-conversations-empty' }, emptyStatus) : null,
-          ...results.items.flatMap(group => (group.hits?.length ? group.hits.map(hit => ({ ...group, ...hit })) : [group]).map(row => {
+          ...results.items.flatMap(group => (group.hits?.length ? group.hits.map(hit => ({ ...group, ...hit })) : [group]).map((row, index, rows) => {
+            const radius = row.selected ? { borderStartStartRadius: index ? 0 : undefined, borderStartEndRadius: index ? 0 : undefined, borderEndStartRadius: index < rows.length - 1 ? 0 : undefined, borderEndEndRadius: index < rows.length - 1 ? 0 : undefined } : undefined;
             const key = JSON.stringify([row.id, row.message?.seq]);
             const title = row.titleMatch ? highlightedText(h, row.title, literalRanges(row.title, query)) : row.title || L.untitled;
             const titleNode = h('span', { className: 'dsh-find-all-conversations-title', title: row.title || L.untitled }, title);
@@ -393,7 +363,7 @@ export function installConversationSearch(ctx, react, ui, bridge) {
               row.workspace ? h('span', { className: 'dsh-find-all-conversations-info', title: row.workspace }, row.workspace) : null,
               row.snippet ? h('span', { className: 'dsh-find-all-conversations-snippet', title: row.snippet }, highlightedText(h, row.snippet, row.ranges)) : null);
             const error = restoreFeedback?.id === row.id ? h('span', { className: 'dsh-find-all-conversations-row-error' }, restoreFeedback.text) : null;
-            if (!row.archived) return h('button', { key, type: 'button', onClick: () => launch(row), className: 'dsh-find-all-conversations-row', 'aria-current': row.selected ? 'true' : undefined }, titleNode, meta, error);
+            if (!row.archived) return h('button', { key, type: 'button', style: radius, onClick: () => launch(row), className: 'dsh-find-all-conversations-row', 'aria-current': row.selected ? 'true' : undefined }, titleNode, meta, error);
             return h('div', { key, className: 'dsh-find-all-conversations-row dsh-find-all-conversations-archived-row' },
               h('div', { className: 'dsh-find-all-conversations-row-heading' }, titleNode,
                 h('span', { className: 'dsh-find-all-conversations-archive-label' }, L.archived),
