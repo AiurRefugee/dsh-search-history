@@ -2282,7 +2282,23 @@ var BAR_ID = "dsh-find-all-root";
                         const node = sourceNode(message, adapter.nodes(current));
                         const row = node && sourceRows(current, node).find(element => element.getClientRects().length);
                         if (row) {
-                            row.scrollIntoView({block: 'center', behavior: 'instant'});
+                            const viewport = readingViewport(current);
+                            if (!viewport) return false;
+                            const scroll = viewport.scroll;
+                            const box = row.getBoundingClientRect();
+                            const offset = Math.max(0, (viewport.bottom - viewport.top - box.height) / 2);
+                            const start = scroll.scrollTop;
+                            const end = Math.max(0, Math.min(scroll.scrollHeight - scroll.clientHeight,
+                                start + box.top - viewport.top - offset));
+                            const started = performance.now();
+                            while (active()) {
+                                const now = await new Promise(requestAnimationFrame);
+                                if (!active() || !row.isConnected) return false;
+                                const t = Math.min(1, (now - started) / 200);
+                                scroll.scrollTop = start + (end - start) * (1 - (1 - t) ** 2);
+                                if (t === 1) break;
+                            }
+                            if (!active()) return false;
                             row.animate?.([{backgroundColor: 'rgba(65,105,225,.24)'}, {backgroundColor: 'transparent'}], 1200);
                             return true;
                         }
@@ -2646,21 +2662,11 @@ var BAR_ID = "dsh-find-all-root";
 			});
             if (typeof ctx.inject === "function") state.conversationSearch = installConversationSearch(ctx, react, ui, {
                 closeFind: close,
-                openFind: function (sessionId, query, message) {
-                    if (!state.mounted || !state.adapter) return false;
-                    var target = state.adapter.forSession(sessionId);
-                    if (!target || !state.adapter.valid(target)) return false;
-                    state.crossSearch = { id: sessionId, query: query };
-                    open(target.anchor, query);
-                    if (message && state.target?.id === sessionId) {
-                        setScope('whole');
-                        const request = state.crossSearch;
-                        revealMessage(target, message, () => state.crossSearch === request &&
-                            state.target?.id === sessionId && state.query === query && isOpen()).then(found => {
-                            if (!found && state.crossSearch === request) { state.sourceNotice = L.matchRevealFailed; historyStatus(); }
-                        });
-                    }
-                    return state.target?.id === sessionId;
+                reveal: function (sessionId, message, active) {
+                    if (!message) return true;
+                    const target = state.adapter?.forSession(sessionId);
+                    if (!target || !state.adapter.valid(target)) return null;
+                    return revealMessage(target, message, active);
                 }
             });
             function AboutPanel() {

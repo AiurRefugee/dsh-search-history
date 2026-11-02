@@ -1,6 +1,6 @@
 {
   "name": "dsh-search-history",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Find saved conversation text across DeepSeek Harness (DSH), with Ctrl+F / Cmd+F inside a conversation.",
   "type": "module",
   "license": "MIT",

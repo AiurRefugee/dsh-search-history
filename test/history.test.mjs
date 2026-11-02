@@ -44,11 +44,18 @@ test('agent searches only caller workspace and returns visible message IDs', asy
 test('selecting second result loads older history and scrolls only its row', async () => {
   const {hits} = await scanObservation(observation, '配置器', signal);
   const nodes = [{key:'first',data:{seq:3}}];
-  let scrolled;
+  const scroll = {scrollTop: 0, scrollHeight: 1200, clientHeight: 400,
+    getBoundingClientRect:()=>({top:0,bottom:400,width:600}),querySelector:()=>null};
+  const {mock} = await import('node:test');
+  mock.method(globalThis.performance,'now',()=>0);
+  globalThis.window = {innerHeight:400,innerWidth:600};
+  let time = 0;
+  const frames = [];
+  globalThis.requestAnimationFrame = callback => { time += 100; frames.push(scroll.scrollTop); callback(time); };
   const rows = ['first','second'].map(key => ({
-    dataset:{chatNodeKey:key}, getClientRects:()=>[{}], scrollIntoView:()=>{ scrolled=key; },
+    dataset:{chatNodeKey:key}, getClientRects:()=>[{}], isConnected:true, getBoundingClientRect:()=>({top:key==="first"?50:700,height:100}),
   }));
-  const target = {id:header.id,root:{querySelectorAll:()=>rows,querySelector:()=>null}};
+  const target = {id:header.id,root:{closest:()=>scroll,querySelectorAll:()=>rows,querySelector:()=>null}};
   const face = {
     getSnapshot:()=>({openState:'open',openError:null,loadingOlder:false}),
     loadThrough:async seq=>{
@@ -58,5 +65,9 @@ test('selecting second result loads older history and scrolls only its row', asy
   };
   const adapter = {face:()=>face,nodes:()=>({values:()=>nodes}),forSession:()=>target};
   assert.equal(await revealMessage(target,hits[1].message,()=>true,adapter),true);
-  assert.equal(scrolled,'second');
+  assert.deepEqual(frames,[0,412.5]);
+  assert.equal(scroll.scrollTop,550);
+  mock.restoreAll();
+  delete globalThis.window;
+  delete globalThis.requestAnimationFrame;
 });

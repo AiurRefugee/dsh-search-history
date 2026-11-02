@@ -235,13 +235,16 @@ export function installConversationSearch(ctx, react, ui, bridge) {
     const navigationChanged = () => { if (handoff === task && !stillSelected()) cancelHandoff(L.interrupted); };
     handoffStops = [ctx.sessions.list.subscribe(navigationChanged), owner.layout.panelInfo.subscribe(navigationChanged)];
     publish();
-    const attempt = () => {
+    const attempt = async () => {
       handoffTimer = 0;
       if (!mounted || handoff !== task || services !== owner) return;
       if (!stillSelected()) { cancelHandoff(task.restored ? L.restoredOpenFailed : L.interrupted); return; }
       const current = currentCatalog();
       if (current.status !== 'ready' || !current.rows.some(item => item.id === task.id && !item.archived)) { cancelHandoff(task.restored ? L.restoredOpenFailed : L.missing); return; }
-      if (bridge.openFind(task.id, task.query, task.message)) { cancelHandoff(); return; }
+      const active = () => mounted && handoff === task && stillSelected();
+      const found = await bridge.reveal(task.id, task.message, active);
+      if (!active()) return;
+      if (found !== null) { cancelHandoff(found ? '' : '无法定位原消息，请重新搜索。'); return; }
       if (Date.now() - task.started > 10000) { cancelHandoff(task.restored ? L.restoredFindFailed : L.chatNeeded); return; }
       handoffTimer = setTimeout(attempt, 100);
     };
@@ -376,21 +379,38 @@ export function installConversationSearch(ctx, react, ui, bridge) {
         h('div', { id: helpId, hidden: !helpOpen, className: 'dsh-find-all-conversations-help-content' },
           h('p', null, L.scopeDetails), h('p', null, L.order), h('p', null, L.snapshot), h('p', null, L.semantics), h('p', null, L.handoff))));
   }
-  function Entry(props) {
-    react.useSyncExternalStore(listener => { listeners.add(listener); return () => listeners.delete(listener); }, () => revision);
-    const Icon = ui.IconSearchOutlineRegular || ui.IconSearchOutline16;
-    return h(react.Fragment, null,
-      h(ui.Button, { type: 'button', size: 'sm', variant: 'ghost', title: notice || L.title, 'aria-label': L.title, onClick: () => show(), style: { width: '100%', justifyContent: props.wide ? 'flex-start' : 'center', gap: 8 } }, Icon ? h(Icon, { size: 16 }) : null, props.wide ? L.title : null),
-      notice && !open ? h('div', { role: 'status', style: { fontSize: 12, padding: 8, overflowWrap: 'anywhere' } }, notice) : null,
-      open && ui.Modal ? h(Panel) : null);
+  const panelId = 'dsh-search-history';
+  let previousPanel = null;
+  function Launcher() {
+    react.useLayoutEffect(() => {
+      services?.layout.selectPanel(previousPanel);
+      show();
+    }, []);
+    return null;
   }
-  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({ name: 'sidebar.footer.action', id: 'dsh-find-all-search', order: 10 }, Entry));
+  function Overlay() {
+    react.useSyncExternalStore(listener => { listeners.add(listener); return () => listeners.delete(listener); }, () => revision);
+    if (open && ui.Modal) return h(Panel);
+    return notice ? h('div', { role: 'status', style: { position: 'fixed', bottom: 16, left: 16 } }, notice) : null;
+  }
+  const Icon = ui.IconSearchOutlineRegular || ui.IconSearchOutline16;
+  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+    name: 'sidebar.panellist', id: panelId, label: '全局搜索', order: -10,
+  }, () => Icon ? h(Icon, { size: 16 }) : '⌕'));
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: panelId }, Launcher));
+  ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: panelId }, Overlay));
   if (typeof ctx.inject === 'function') ctx.inject(['uiWorkspace', 'workspaces', 'layout'], child => {
     child.effect(() => {
       if (typeof child.uiWorkspace?.openSession !== 'function' || typeof child.layout?.panelInfo?.subscribe !== 'function' || typeof child.layout?.panelInfo?.getSnapshot !== 'function' || typeof child.workspaces?.list?.subscribe !== 'function' || typeof ctx.sessions?.list?.subscribe !== 'function') return;
       const owner = { uiWorkspace: child.uiWorkspace, workspaces: child.workspaces, layout: child.layout };
+      const rememberPanel = () => {
+        const id = owner.layout.panelInfo.getSnapshot().activePanelId;
+        if (id !== panelId) previousPanel = id;
+      };
+      rememberPanel();
+      const stopRemembering = owner.layout.panelInfo.subscribe(rememberPanel);
       cancelRequest(); services = owner; content = EMPTY; body = 'idle'; watchLists(); if (open) schedule(); publish();
-      return () => { if (services !== owner) return; invalidateRestoreNavigation(); services = null; cancelRequest(); stopLists(); cancelHandoff(L.interrupted); content = EMPTY; body = 'idle'; publish(); };
+      return () => { stopRemembering(); if (services !== owner) return; invalidateRestoreNavigation(); services = null; cancelRequest(); stopLists(); cancelHandoff(L.interrupted); content = EMPTY; body = 'idle'; publish(); };
     });
   });
   if (typeof ctx.on === 'function') ctx.on('connection/reset', () => {
