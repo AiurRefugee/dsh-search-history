@@ -8,6 +8,7 @@ DeepSeek Harness Web 聊天记录全文搜索。目标宿主为 0.2.1-rc.3。
 
 ```sh
 git clone https://github.com/AiurRefugee/dsh-search-history.git
+npm ci --prefix ./dsh-search-history
 dsh plugin --profile web add "$(pwd)/dsh-search-history"
 ```
 
