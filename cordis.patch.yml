@@ -1,0 +1,3 @@
+- insert:
+    - id: search-history
+      name: 'dsh-search-history'

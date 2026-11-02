@@ -1,0 +1,69 @@
+{
+  "name": "dsh-search-history",
+  "version": "0.1.0",
+  "description": "Find saved conversation text across DeepSeek Harness (DSH), with Ctrl+F / Cmd+F inside a conversation.",
+  "type": "module",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "LICENSE",
+    "NOTICE.md",
+    "README.md"
+  ],
+  "author": "AiurRefugee",
+  "contributors": [
+    "secyborg (upstream dsh-find-bar, MIT)"
+  ],
+  "repository": "github:AiurRefugee/dsh-search-history",
+  "homepage": "https://github.com/AiurRefugee/dsh-search-history",
+  "bugs": "https://github.com/AiurRefugee/dsh-search-history/issues",
+  "peerDependencies": {
+    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-ui-chat": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.3"
+  },
+  "scripts": {
+    "build": "node scripts/build-client.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check:build": "node scripts/build-client.mjs --check"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "find",
+    "search",
+    "conversation",
+    "conversation-search",
+    "ctrl-f"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ],
+      "platform": "web"
+    }
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "jsdom": "27.4.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "semver": "7.8.5"
+  }
+}
