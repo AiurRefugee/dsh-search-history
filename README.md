@@ -17,7 +17,7 @@ dsh plugin --profile web add "$(pwd)/dsh-search-history"
 ## 使用
 
 - 点击侧栏顶部导航的「全局搜索」或按 Ctrl/Cmd + K 打开搜索面板。输入中文、英文或代码片段，按工作区和会话识别每条命中消息。点击正文片段，插件打开会话、加载所需的历史并以 200ms 减速滚动到该消息，保持会话内查找栏关闭。仅标题命中时打开会话。
-- 在聊天页按 Ctrl/Cmd + F 查找当前会话。Enter 和 Shift + Enter 切换匹配，Esc 关闭。搜索用户消息和助手正文，排除推理内容。
+- 在聊天页按 Ctrl/Cmd + F 查找当前会话。历史正文由搜索读取器处理，首次完整扫描后优先定位已加载到页面中的第一条匹配；上一个/下一个按消息序号调用宿主 `loadThrough(seq)` 按需加载目标并滚动定位。Enter 和 Shift + Enter 切换匹配，Esc 关闭。搜索用户消息和助手正文，排除推理内容。
 - Agent 可以调用只读工具 `search_chat_history`：`query` 必填（不区分大小写的字面文本，不是正则表达式），`session_id` 可选。默认搜索所有工作区的未归档普通会话；排除推理过程、工具调用与子 Agent 会话。返回 `sessionId`、`workspace`、`messageId`、`seq`、`kind` 和 `snippet`；`incomplete=true` 表示结果可能未全部返回。\n- Agent 可以调用只读工具 `read_chat_history_turn`：传入搜索结果中的 `sessionId` 作为 `session_id`，`messageId` 作为 `message_id`，跨工作区读取这条消息所在的完整用户提问与助手最终回复轮次；保留多个助手消息，排除推理和工具数据。`truncated=true` 表示轮次正文达到 250000 字符上限，需要留意未读完。
 - 全局搜索按批读取已保存的会话。单条消息显示一个摘要，单会话最多返回 500 条命中消息。Agent 每次最多返回 100 条，达到限制或读取失败时响应带有 `incomplete`。默认搜索全部工作区的未归档普通会话。
 
