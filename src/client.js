@@ -67,7 +67,7 @@ var BAR_ID = "dsh-find-all-root";
 			noService: "暂时无法搜索完整对话，已显示当前找到的结果。",
 			noTarget: "当前主会话没有可搜索的聊天正文",
 			noRoot: "当前会话的搜索范围不可用",
-			incomplete: "搜索未完成，已显示当前找到的结果。",
+			incomplete: "当前仍在读取历史记录，已有结果可浏览。",
 			find: "查找会话",
 			returnPosition: "返回搜索前位置", returning: "正在返回…", returned: "已返回搜索前位置",
 			returnAvailable: "已跳到匹配；可返回搜索前位置",
@@ -112,7 +112,7 @@ var BAR_ID = "dsh-find-all-root";
 			noService: "The whole conversation cannot be searched right now. Showing the results found so far.",
 			noTarget: "No searchable chat content in the main conversation",
 			noRoot: "Search scope unavailable for this conversation",
-			incomplete: "Search did not finish. Showing the results found so far.",
+			incomplete: "History is still loading; available results can be browsed.",
 			find: "Find in conversation",
 			returnPosition: "Return to reading position", returning: "Returning…", returned: "Returned to reading position",
 			returnAvailable: "Moved to a match; return to the reading position is available",
@@ -2222,6 +2222,12 @@ var BAR_ID = "dsh-find-all-root";
                     if(!source){
                         if(state.scanCursor>=docs.length){
 							state.scanBusy=false;state.scanComplete=selectedProjectionComplete(state.historySnapshot);state.capped=state.total>MAX_MATCHES;
+                            // Prefer the earliest hit already mounted in the conversation.
+                            // Unmounted hits are revealed only when explicitly navigated to.
+                            if(state.index<0&&state.hits.length){
+                                var store=state.adapter?.nodes(state.target),firstLoaded=state.hits.findIndex(function(hit){return !!sourceNode(hit.source,store);});
+                                activateHistoryMatch(firstLoaded>=0?firstLoaded:0);
+                            }
                             scanLiveCount();updateCount();historyStatus();return;
                         }
                         source=docs[state.scanCursor];blockIndex=0;matcher.lastIndex=0;
